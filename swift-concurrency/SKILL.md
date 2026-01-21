@@ -174,6 +174,7 @@ Load these files as needed for specific topics:
 - **`async-sequences.md`** - AsyncSequence, AsyncStream, when to use vs regular async methods
 - **`performance.md`** - Profiling with Instruments, reducing suspension points, execution strategies
 - **`testing.md`** - XCTest async patterns, Swift Testing, concurrency testing utilities
+- **`production-patterns.md`** - Advanced patterns: actor state machines, ~Copyable state, structured concurrency, lock-free atomics, service lifecycle
 
 ## Best Practices Summary
 
@@ -184,6 +185,185 @@ Load these files as needed for specific topics:
 5. **Handle cancellation** - Check Task.isCancelled in long-running operations
 6. **Avoid blocking** - Never use semaphores or locks in async contexts
 7. **Test concurrent code** - Use proper async test methods and consider timing issues
+
+## Lessons Learned
+
+### Use Structured Concurrency for Resource Management
+
+When managing resources that need cleanup (connections, file handles, etc.), use the `withX` pattern to ensure proper cleanup through structured concurrency.
+
+**Bad - Unstructured cleanup:**
+```swift
+func withConnection<R>(
+    _ body: (Connection) async throws -> R
+) async throws -> R {
+    let connection = Connection()
+    try await connection.connect()
+    defer {
+        Task {
+            await connection.disconnect()  // Unstructured! May not complete
+        }
+    }
+    return try await body(connection)
+}
+```
+
+**Better - Explicit cleanup in all paths:**
+```swift
+func withConnection<R>(
+    _ body: (Connection) async throws -> R
+) async throws -> R {
+    let connection = Connection()
+    try await connection.connect()
+    do {
+        let result = try await body(connection)
+        await connection.disconnect()
+        return result
+    } catch {
+        await connection.disconnect()
+        throw error
+    }
+}
+```
+
+**Best - Make the pattern impossible to misuse:**
+```swift
+actor Client {
+    private let connection: Connection  // Non-optional, always valid
+
+    private init(connection: Connection) {
+        self.connection = connection
+    }
+
+    static func withConnection<R>(
+        _ body: (Client) async throws -> R
+    ) async throws -> R {
+        let connection = try await Connection.establish()
+        let client = Client(connection: connection)
+        do {
+            let result = try await body(client)
+            await connection.close()
+            return result
+        } catch {
+            await connection.close()
+            throw error
+        }
+    }
+
+    // No public connect()/disconnect() methods - can't forget cleanup
+}
+```
+
+This pattern:
+- Makes the initializer private so users must go through `withConnection`
+- Stores resources as non-optional properties (no guard-let needed)
+- Guarantees cleanup happens before the function returns
+- Eliminates `notConnected` error cases entirely
+
+### Swift 6 Strict Concurrency with Global Mutable State
+
+When accessing C globals like `stdout` in Swift 6 strict concurrency mode, use a **local** `nonisolated(unsafe)` variable:
+
+```swift
+@inline(__always)
+private func flushStdout() {
+    nonisolated(unsafe) let out = stdout
+    fflush(out)
+}
+```
+
+The `nonisolated(unsafe)` annotation tells the compiler to skip concurrency checking for this specific access to the C global.
+
+### ThrowingDiscardingTaskGroup for Fire-and-Forget Tasks
+
+Use `withThrowingDiscardingTaskGroup` when you need to spawn multiple tasks but don't need to collect their individual results:
+
+```swift
+try await withThrowingDiscardingTaskGroup { taskGroup in
+    taskGroup.addTask {
+        try await handleClient(client1)
+    }
+    taskGroup.addTask {
+        try await handleClient(client2)
+    }
+}
+```
+
+### Graceful Shutdown Patterns
+
+Check for both cancellation and graceful shutdown in long-running loops:
+
+```swift
+while !Task.isShuttingDownGracefully && !Task.isCancelled {
+    try await handle(value)
+}
+
+// Use gracefulShutdown() for clean termination
+try await gracefulShutdown()
+```
+
+### AsyncStream: Avoid When Possible
+
+**AsyncStream has no backpressure.** If the producer yields faster than the consumer processes, values accumulate in an unbounded buffer, leading to memory growth.
+
+**Prefer mapping NIOAsyncSequence** or other backpressured sequences instead:
+
+```swift
+// Bad - no backpressure, unbounded buffer
+let stream = AsyncStream<Message> { continuation in
+    Task {
+        for await rawMessage in nioChannel.inbound {
+            continuation.yield(Message(rawMessage))
+        }
+        continuation.finish()
+    }
+}
+
+// Good - preserves backpressure from NIO
+let messages = nioChannel.inbound.map { Message($0) }
+for try await message in messages {
+    process(message)
+}
+```
+
+If you must use AsyncStream, use structured concurrency with `makeStream()`:
+
+```swift
+func run() async {
+    let (stream, continuation) = AsyncStream<Value>.makeStream()
+
+    async let producer: Void = runProducer(continuation: continuation)
+
+    for await value in stream {
+        process(value)
+    }
+
+    await producer
+}
+
+private func runProducer(
+    continuation: sending AsyncStream<Value>.Continuation
+) async {
+    let cont = consume continuation  // Transfer ownership
+
+    try? await withThrowingDiscardingTaskGroup { group in
+        group.addTask {
+            while !Task.isCancelled {
+                cont.yield(produceValue())
+                try await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+
+    cont.finish()
+}
+```
+
+Key points:
+- `sending` parameter transfers ownership into the function
+- `consume continuation` allows safe sharing across task group children
+- `AsyncStream.Continuation` is `Sendable` - no need for `nonisolated(unsafe)`
+- Avoid `Task { }` inside `AsyncStream.init` - it's unstructured concurrency
 
 ## Verification Checklist (When You Change Concurrency Code)
 

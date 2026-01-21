@@ -34,7 +34,11 @@ When a developer needs SwiftNIO guidance, follow this decision tree:
    - Read `references/ByteBuffer.md` for buffer operations
    - Prefer slice views over copies when possible
 
-4. **Migrating from EventLoopFuture to async/await?**
+4. **Implementing a binary protocol?**
+   - Read `references/ByteToMessageCodecs.md` for codec patterns
+   - Use `ByteToMessageDecoder` and `MessageToByteEncoder`
+
+5. **Migrating from EventLoopFuture to async/await?**
    - Use `.get()` to bridge futures to async
    - Use `NIOAsyncChannel` for channel-based async code
 
@@ -49,6 +53,12 @@ When a developer needs SwiftNIO guidance, follow this decision tree:
   - Ensure `InboundOut` of handler N matches `InboundIn` of handler N+1
   - Ensure `OutboundOut` of handler N matches `OutboundIn` of handler N-1
   - See `references/Channels.md`
+
+- **Implementing binary protocol serialization**
+  - Use `ByteToMessageDecoder` for parsing bytes into messages
+  - Use `MessageToByteEncoder` for serializing messages to bytes
+  - Use `readLengthPrefixedSlice` and `writeLengthPrefixed` helpers
+  - See `references/ByteToMessageCodecs.md`
 
 - **Memory issues with ByteBuffer**
   - Use `readSlice` instead of `readBytes` when possible
@@ -130,6 +140,8 @@ Load these files as needed for specific topics:
 
 - **`EventLoops.md`** - EventLoop concepts, nonblocking I/O, why blocking is bad
 - **`Channels.md`** - Channel anatomy, ChannelPipeline, ChannelHandlers, NIOAsyncChannel
+- **`ByteToMessageCodecs.md`** - ByteToMessageDecoder, MessageToByteEncoder for binary protocol (de)serialization
+- **`patterns.md`** - Advanced integration patterns: ServerChildChannel abstraction, state machines, noncopyable ResponseWriter, graceful shutdown, ByteBuffer patterns
 
 ## Best Practices Summary
 
@@ -139,3 +151,113 @@ Load these files as needed for specific topics:
 4. **Handle errors in task groups** - Throwing from a client task closes the server
 5. **Mind the types in pipelines** - Type mismatches crash at runtime
 6. **Use ByteBuffer efficiently** - Prefer slices over copies
+
+## Lessons Learned
+
+### Use ByteBuffer for Binary Protocol Handling
+
+When parsing or serializing binary data (especially for network protocols), use SwiftNIO's `ByteBuffer` instead of Foundation's `Data`. ByteBuffer provides:
+- Efficient read/write operations with built-in endianness handling
+- Zero-copy slicing with reader/writer index tracking
+- Integration with NIO ecosystem
+
+When converting between ByteBuffer and Data, use `NIOFoundationCompat`:
+
+```swift
+import NIOFoundationCompat
+
+// ByteBuffer to Data
+let data = Data(buffer: byteBuffer)
+
+// Data to ByteBuffer - use writeData for better performance
+var buffer = ByteBuffer()
+buffer.writeData(data)  // Faster than writeBytes(data)
+```
+
+**Bad - Using Data with manual byte manipulation:**
+```swift
+var buffer = Data()
+var messageLength: UInt32?
+
+for try await message in inbound {
+    buffer.append(message)
+
+    if messageLength == nil && buffer.count >= 4 {
+        messageLength = UInt32(buffer[0]) << 24
+            | UInt32(buffer[1]) << 16
+            | UInt32(buffer[2]) << 8
+            | UInt32(buffer[3])
+        buffer = Data(buffer.dropFirst(4))  // Copies data!
+    }
+}
+```
+
+**Good - Using ByteBuffer:**
+
+```swift
+var buffer = ByteBuffer()
+
+for try await message in inbound {
+    buffer.writeBytes(message)
+
+    if buffer.readableBytes >= 4 {
+        let readerIndex = buffer.readerIndex
+        guard let messageLength = buffer.readInteger(endianness: .big, as: UInt32.self) else {
+            continue
+        }
+
+        if buffer.readableBytes >= messageLength {
+            guard let bytes = buffer.readBytes(length: Int(messageLength)) else { continue }
+            // Process bytes...
+        } else {
+            // Not enough data yet, reset reader index
+            buffer.moveReaderIndex(to: readerIndex)
+        }
+    }
+}
+```
+
+### Binary Data Types Comparison
+
+There are several "bag of bytes" data structures in Swift:
+
+| Type | Source | Platform | Notes |
+|------|--------|----------|-------|
+| `Array<UInt8>` | stdlib | All | Safe, growable, good for Embedded Swift |
+| `InlineArray<N, UInt8>` | stdlib (6.1+) | All | Fixed-size, stack-allocated, no heap allocation |
+| `Data` | Foundation | All (large binary) | Not always contiguous on Apple platforms |
+| `ByteBuffer` | SwiftNIO | All (requires NIO) | Best for network protocols, not Embedded |
+| `Span<UInt8>` | stdlib (6.2+) | All | Zero-copy view, requires Swift 6.2+ |
+| `UnsafeBufferPointer<UInt8>` | stdlib | All | Unsafe, manual memory management |
+
+**Recommendations:**
+- For iOS/macOS-only projects: `Data` is fine due to framework integration
+- For SwiftNIO-based projects: `ByteBuffer` is required for I/O operations
+- For Embedded Swift: `[UInt8]` and `InlineArray`
+- For cross-platform APIs: `Span<UInt8>` (Swift 6.2+) allows any backing type
+
+### NIO Channel Pattern with executeThenClose
+
+Use `executeThenClose` to get inbound/outbound streams from NIOAsyncChannel:
+
+```swift
+return try await channel.executeThenClose { inbound, outbound in
+    let socket = Client(inbound: inbound, outbound: outbound, channel: channel.channel)
+    return try await perform(client)
+}
+```
+
+### Public API with Internal NIO Types
+
+When exposing async sequences that wrap NIO types:
+1. Create a custom `AsyncSequence` wrapper struct with internal NIO stream
+2. The wrapper's `AsyncIterator` transforms NIO types to public types
+3. This avoids exposing internal NIO imports in public API
+
+### SwiftNIO UDP Notes
+
+- Use `DatagramBootstrap` for UDP sockets
+- Messages use `AddressedEnvelope<ByteBuffer>` containing remote address and data
+- Multicast requires casting channel to `MulticastChannel` protocol
+- Socket options use `SocketOptionValue` (Int32) type
+- `so_reuseport` is only available on Linux
