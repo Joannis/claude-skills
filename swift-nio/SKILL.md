@@ -1,6 +1,6 @@
 ---
 name: swift-nio
-description: 'Expert guidance on Swift NIO best practices, patterns, and implementation. Use when developers mention: (1) SwiftNIO, NIO, ByteBuffer, Channel, ChannelPipeline, ChannelHandler, EventLoop, NIOAsyncChannel or NIOFileSystem (2) "use SwiftNIO", EventLoopFuture, ServerBootstrap.'
+description: 'Expert guidance on SwiftNIO best practices, patterns, and implementation. Use when developers mention: (1) SwiftNIO, NIO, ByteBuffer, Channel, ChannelPipeline, ChannelHandler, EventLoop, NIOAsyncChannel, or NIOFileSystem, (2) EventLoopFuture, ServerBootstrap, or DatagramBootstrap, (3) TCP/UDP server or client implementation, (4) ByteToMessageDecoder or wire protocol codecs, (5) binary protocol parsing or serialization, (6) blocking the event loop issues.'
 ---
 
 # Swift NIO

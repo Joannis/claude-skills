@@ -1,6 +1,6 @@
 ---
 name: linear
-description: 'Linear CLI for issue tracking. Use when developers mention: (1) Linear issues, (2) issue tracking or task management, (3) WDY issues, (4) closing or updating tickets.'
+description: 'Linear CLI for issue tracking and project management. Use when developers mention: (1) Linear issues or tickets, (2) issue tracking or task management, (3) WDY team issues, (4) closing, updating, or triaging tickets, (5) linking PRs to issues, (6) issue states (triage, backlog, started, completed).'
 ---
 
 # Linear CLI

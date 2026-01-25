@@ -1,6 +1,6 @@
 ---
 name: database-clients
-description: 'Expert guidance on building Swift database client libraries. Use when developers mention: (1) database driver design, (2) connection pooling patterns, (3) wire protocol implementation, (4) SQL query building, (5) prepared statements, (6) PostgreSQL or Redis/Valkey clients, (7) type-safe database access, (8) RESP or PostgreSQL protocol.'
+description: 'Expert guidance on building Swift database client libraries. Use when developers mention: (1) database driver or client library design, (2) connection pooling patterns, (3) wire protocol implementation, (4) SQL query building or string interpolation safety, (5) prepared statements or parameterized queries, (6) PostgreSQL, Redis, or Valkey clients, (7) type-safe database access, (8) RESP or PostgreSQL wire protocol, (9) postgres-nio or valkey-swift patterns.'
 ---
 
 # Database Client Design

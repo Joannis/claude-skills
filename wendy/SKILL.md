@@ -1,6 +1,6 @@
 ---
 name: wendy
-description: 'Expert guidance on WendyOS, development, running, remote debugging and deployment. Use when developers mention: (1) Wendy,WendyOS, NVIDIA Jetson or Edge Computing.'
+description: 'Expert guidance on WendyOS, development, running, remote debugging and deployment. Use when developers mention: (1) Wendy, WendyOS, NVIDIA Jetson, or Edge Computing, (2) wendy CLI commands or wendy.json, (3) embedded Linux or Yocto builds, (4) Raspberry Pi edge devices, (5) container deployment to edge devices, (6) remote debugging Swift on ARM64, (7) meta-wendyos layers or bitbake.'
 references:
   - wendy.json.md
   - yocto-meta-layers.md
