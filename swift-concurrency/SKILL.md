@@ -186,8 +186,6 @@ Load these files as needed for specific topics:
 6. **Avoid blocking** - Never use semaphores or locks in async contexts
 7. **Test concurrent code** - Use proper async test methods and consider timing issues
 
-## Lessons Learned
-
 ### Use Structured Concurrency for Resource Management
 
 When managing resources that need cleanup (connections, file handles, etc.), use the `withX` pattern to ensure proper cleanup through structured concurrency.

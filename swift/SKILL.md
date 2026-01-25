@@ -18,8 +18,6 @@ Load these files as needed for specific topics:
 - **`references/debugging.md`** - Debugging tips: Terminal UI on Linux (alternate screen buffer), GitHub Actions log analysis
 - **`references/api-design.md`** - API design patterns: protocol design, result builders, builder pattern, extensions, overload resolution, error design, type-safe generics
 
-## Lessons Learned
-
 ### Access Modifiers
 
 Keep types and functions internal unless they need to be public for external use. This prevents accidental exposure of implementation details and makes access level errors easier to fix.

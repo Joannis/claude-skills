@@ -152,8 +152,6 @@ Load these files as needed for specific topics:
 5. **Mind the types in pipelines** - Type mismatches crash at runtime
 6. **Use ByteBuffer efficiently** - Prefer slices over copies
 
-## Lessons Learned
-
 ### Use ByteBuffer for Binary Protocol Handling
 
 When parsing or serializing binary data (especially for network protocols), use SwiftNIO's `ByteBuffer` instead of Foundation's `Data`. ByteBuffer provides:
