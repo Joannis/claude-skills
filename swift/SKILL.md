@@ -16,7 +16,6 @@ Load these files as needed for specific topics:
 - **`references/swift-otel.md`** - Swift OTel: OpenTelemetry backend for server apps (preferred for Linux); OTLP export for logs, metrics, tracing; framework integration
 - **`references/swift-testing.md`** - Swift Testing framework: @Test macro, #expect/#require assertions, traits, parameterized tests, test suites, parallel execution, XCTest migration
 - **`references/debugging.md`** - Debugging tips: Terminal UI on Linux (alternate screen buffer), GitHub Actions log analysis
-- **`references/api-design.md`** - API design patterns: protocol design, result builders, builder pattern, extensions, overload resolution, error design, type-safe generics
 
 ### Access Modifiers
 
