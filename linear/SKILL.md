@@ -21,8 +21,6 @@ Without this, most commands will fail.
 
 ## Team
 
-- **Team Key**: WDY (Wendy)
-
 Use `linear team list` to discover available teams.
 
 ## Issue States
