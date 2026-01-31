@@ -1,0 +1,218 @@
+version: 1
+
+include:
+  - "**/*.swift"
+
+exclude:
+  - "**/.build/**"
+  - "**/Packages/**"
+  - "**/DerivedData/**"
+  - "**/*.generated.swift"
+
+rules:
+  # PostgreSQL rules
+  postgres:
+    sql-injection:
+      enabled: true
+      severity: error
+      options:
+        allow_unsafe_sql_with_comment: true
+    connection-leak:
+      enabled: true
+      severity: warning
+    transaction:
+      enabled: true
+      severity: warning
+    prepared-statement:
+      enabled: true
+      severity: info
+    pool-exhaustion:
+      enabled: true
+      severity: warning
+    null-handling:
+      enabled: true
+      severity: warning
+    batch-insert:
+      enabled: true
+      severity: info
+    decimal-precision:
+      enabled: true
+      severity: warning
+    jsonb-typing:
+      enabled: true
+      severity: info
+    enum-sync:
+      enabled: true
+      severity: warning
+
+  # Swift Concurrency rules
+  concurrency:
+    unchecked-sendable:
+      enabled: true
+      severity: warning
+      options:
+        require_safety_comment: true
+    actor-reentrancy:
+      enabled: true
+      severity: warning
+    detached-task-in-actor:
+      enabled: true
+      severity: warning
+    task-group-cancellation:
+      enabled: true
+      severity: warning
+    async-let-leak:
+      enabled: true
+      severity: error
+    main-actor-blocking:
+      enabled: true
+      severity: error
+    sendable-closure:
+      enabled: true
+      severity: warning
+    global-actor-mixing:
+      enabled: true
+      severity: warning
+    unsafe-continuation:
+      enabled: true
+      severity: warning
+    task-local-inheritance:
+      enabled: true
+      severity: info
+    async-sequence-buffering:
+      enabled: true
+      severity: info
+
+  # SwiftNIO rules
+  nio:
+    event-loop-blocking:
+      enabled: true
+      severity: error
+    event-loop-future-leak:
+      enabled: true
+      severity: warning
+    byte-buffer-leak:
+      enabled: true
+      severity: warning
+    channel-pipeline-order:
+      enabled: true
+      severity: warning
+    promise-double-complete:
+      enabled: true
+      severity: error
+    deadlock:
+      enabled: true
+      severity: error
+    event-loop-group-shutdown:
+      enabled: true
+      severity: warning
+    byte-buffer-view-retain:
+      enabled: true
+      severity: warning
+    async-bridging:
+      enabled: true
+      severity: info
+
+  # Hummingbird rules
+  hummingbird:
+    request-context-mutation:
+      enabled: true
+      severity: warning
+    middleware-order:
+      enabled: true
+      severity: warning
+    response-body-stream:
+      enabled: true
+      severity: info
+    route-handler-async:
+      enabled: true
+      severity: info
+
+  # Library Design rules
+  library-design:
+    public-import:
+      enabled: true
+      severity: error
+    inlinable-leaking:
+      enabled: true
+      severity: warning
+    spi-leaking:
+      enabled: true
+      severity: warning
+    existential-performance:
+      enabled: true
+      severity: info
+
+  # General Swift rules
+  general:
+    linux-c-library:
+      enabled: true
+      severity: error
+    foundation-avoidance:
+      enabled: true
+      severity: info
+      options:
+        allowed_types:
+          - URL
+          - Data
+          - Date
+          - UUID
+    logger-usage:
+      enabled: true
+      severity: info
+    fatal-error:
+      enabled: true
+      severity: warning
+    force-unwrap:
+      enabled: true
+      severity: warning
+    force-try:
+      enabled: true
+      severity: warning
+    implicitly-unwrapped-optional:
+      enabled: true
+      severity: warning
+    todo-comment:
+      enabled: true
+      severity: info
+    large-file:
+      enabled: true
+      severity: warning
+      options:
+        max_lines: 500
+    cyclomatic-complexity:
+      enabled: true
+      severity: warning
+      options:
+        max_complexity: 10
+    deep-nesting:
+      enabled: true
+      severity: warning
+      options:
+        max_depth: 4
+    unused-import:
+      enabled: true
+      severity: info
+
+profiles:
+  ci:
+    rules:
+      postgres:
+        sql-injection:
+          severity: error
+      nio:
+        event-loop-blocking:
+          severity: error
+      concurrency:
+        unchecked-sendable:
+          severity: error
+
+  strict:
+    rules:
+      general:
+        force-unwrap:
+          severity: error
+        force-try:
+          severity: error
+        fatal-error:
+          severity: error
