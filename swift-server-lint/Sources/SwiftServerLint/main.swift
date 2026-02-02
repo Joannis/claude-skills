@@ -44,6 +44,9 @@ struct Lint: ParsableCommand {
     @Flag(name: .long, help: "Disable colored output")
     var noColor: Bool = false
 
+    @Flag(name: .long, help: "Run all rules regardless of Package.swift dependencies")
+    var allRules: Bool = false
+
     func run() throws {
         // Load configuration
         let configuration: Configuration
@@ -73,11 +76,36 @@ struct Lint: ParsableCommand {
             return
         }
 
-        // Create rules
+        // Detect dependencies from Package.swift to determine relevant rule categories
+        let detectionResult: PackageDependencyDetector.DetectionResult
+        if allRules {
+            // If --all-rules flag is set, enable all categories
+            detectionResult = PackageDependencyDetector.DetectionResult(
+                enabledCategories: Set(RuleCategory.allCases)
+            )
+        } else {
+            // Find Package.swift and detect dependencies
+            let startPath = paths.first ?? "."
+            if let packagePath = PackageDependencyDetector.findPackageSwift(from: startPath) {
+                detectionResult = PackageDependencyDetector.detect(from: packagePath)
+            } else {
+                // No Package.swift found, enable all categories
+                detectionResult = PackageDependencyDetector.DetectionResult(
+                    enabledCategories: Set(RuleCategory.allCases)
+                )
+            }
+        }
+
+        // Create rules (filtered by detected dependencies)
         let registry = RuleRegistry.shared
         var rules: [any SwiftServerLintRules.Rule] = []
 
         for ruleType in registry.allRules {
+            // Skip rules for categories that aren't relevant based on detected dependencies
+            guard detectionResult.isEnabled(ruleType.category) else {
+                continue
+            }
+
             let ruleConfig = configuration.configuration(for: ruleType.identifier, profile: profile)
             if ruleConfig.enabled {
                 rules.append(ruleType.init(configuration: ruleConfig))

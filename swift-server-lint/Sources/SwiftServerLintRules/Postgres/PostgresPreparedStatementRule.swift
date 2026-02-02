@@ -8,8 +8,7 @@ public struct PostgresPreparedStatementRule: SyntaxVisitorRule {
     public static let identifier = "postgres.prepared-statement"
     public static let name = "PostgreSQL Prepared Statements"
     public static let description = """
-        Repeated queries should use prepared statements for better performance. \
-        PostgresQuery automatically prepares statements on repeated use.
+        Repeated queries should use prepared statements for better performance.
         """
     public static let category = RuleCategory.postgres
     public static let defaultSeverity = Severity.info
@@ -51,7 +50,7 @@ public final class PostgresPreparedStatementVisitor: RuleVisitor, @unchecked Sen
                 for queryNode in nodes {
                     addDiagnostic(
                         at: queryNode,
-                        message: "Query appears \(nodes.count) times. Consider using a prepared statement or PostgresQuery type.",
+                        message: "Query appears \(nodes.count) times. Consider using a prepared statement.",
                         notes: [Note(message: "Prepared statements improve performance for repeated queries")]
                     )
                 }

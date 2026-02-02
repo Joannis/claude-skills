@@ -29,9 +29,6 @@ public struct SQLInjectionRule: SyntaxVisitorRule {
 
     public static let nonTriggeringExamples = [
         #"""
-        let query: PostgresQuery = "SELECT * FROM users WHERE id = \(userId)"
-        """#,
-        #"""
         connection.query("SELECT * FROM users WHERE id = $1", [userId])
         """#,
         #"""
@@ -85,11 +82,6 @@ public final class SQLInjectionVisitor: RuleVisitor, @unchecked Sendable {
         // Check for string interpolation
         for segment in node.segments {
             if case .expressionSegment = segment {
-                // Check if it's typed as PostgresQuery (which is safe)
-                if isTypedAsPostgresQuery(node) {
-                    return .visitChildren
-                }
-
                 // Check for unsafe-sql comment if allowed
                 if allowUnsafeComment && hasUnsafeSQLComment(node) {
                     return .visitChildren
@@ -97,10 +89,10 @@ public final class SQLInjectionVisitor: RuleVisitor, @unchecked Sendable {
 
                 addDiagnostic(
                     at: node,
-                    message: "Potential SQL injection: avoid string interpolation in SQL queries. Use parameterized queries with PostgresBindings.",
+                    message: "Potential SQL injection: avoid string interpolation in SQL queries. Use parameterized queries with bindings.",
                     fix: Fix(
-                        description: "Use PostgresQuery type annotation for safe interpolation",
-                        replacement: "let query: PostgresQuery = ..."
+                        description: "Use parameterized query with $1, $2, etc.",
+                        replacement: "Use bindings instead of interpolation"
                     )
                 )
                 return .skipChildren
@@ -148,25 +140,6 @@ public final class SQLInjectionVisitor: RuleVisitor, @unchecked Sendable {
     private func containsSQLInExpression(_ expr: ExprSyntax) -> Bool {
         if let stringLiteral = expr.as(StringLiteralExprSyntax.self) {
             return containsSQLKeywords(stringLiteral)
-        }
-        return false
-    }
-
-    private func isTypedAsPostgresQuery(_ node: some SyntaxProtocol) -> Bool {
-        // Walk up to find variable declaration with type annotation
-        var current: Syntax? = Syntax(node)
-        while let parent = current?.parent {
-            if let varDecl = parent.as(VariableDeclSyntax.self) {
-                for binding in varDecl.bindings {
-                    if let typeAnnotation = binding.typeAnnotation {
-                        let typeName = typeAnnotation.type.description.trimmingCharacters(in: .whitespaces)
-                        if typeName == "PostgresQuery" {
-                            return true
-                        }
-                    }
-                }
-            }
-            current = parent
         }
         return false
     }
